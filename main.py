@@ -1,5 +1,7 @@
 import telebot
 import os
+import random
+import string
 from flask import Flask
 from threading import Thread
 
@@ -38,8 +40,11 @@ def add_point(message):
         device_id = args[1]
         points = args[2]
         
-        # ဒီနေရာကနေ Key ထုတ်ပေးပါမယ်
-        generated_key = f"GHOST-{device_id}-ACTIVATE" 
+        # ROHPU1QT-1-ISBF ပုံစံမျိုး Key ထုတ်ပေးခြင်း
+        part1 = ''.join(random.choices(string.ascii_uppercase + string.digits, k=8))
+        part2 = points
+        part3 = ''.join(random.choices(string.ascii_uppercase + string.digits, k=4))
+        generated_key = f"{part1}-{part2}-{part3}"
         
         bot.reply_to(message, f"✅ Success!\nDevice: {device_id}\nPoints: {points}\nKey: {generated_key}")
     except Exception as e:
