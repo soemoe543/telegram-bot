@@ -1,11 +1,24 @@
 import telebot
 import os
+from flask import Flask
+from threading import Thread
 
+# သင့် Bot Token
 TOKEN = "8535512510:AAFYDZfmxeIP7enJ8pk6iNQg2ef30KPjPlg"
 bot = telebot.TeleBot(TOKEN)
 
+# Admin ID
 ADMIN_IDS = [1801787123]
-devices_db = {}
+
+# Flask Server
+app = Flask(__name__)
+
+@app.route('/')
+def home():
+    return "Bot is running!"
+
+def run():
+    app.run(host='0.0.0.0', port=int(os.environ.get("PORT", 10000)))
 
 @bot.message_handler(commands=['start'])
 def send_welcome(message):
@@ -19,16 +32,19 @@ def add_point(message):
     try:
         args = message.text.split()
         if len(args) < 3:
-            bot.reply_to(message, "❌ ဥပမာ - /addpoint ABC12345 5")
+            bot.reply_to(message, "❌ ဥပမာ - /addpoint GHOST-7D0C0D8 1")
             return
+        
         device_id = args[1]
-        points = int(args[2])
-        if device_id not in devices_db:
-            devices_db[device_id] = {"credits": 0}
-        devices_db[device_id]["credits"] += points
-        bot.reply_to(message, f"✅ Success! လက်ကျန်ပွိုင့် - {devices_db[device_id]['credits']}")
+        points = args[2]
+        
+        # ဒီနေရာကနေ Key ထုတ်ပေးပါမယ်
+        generated_key = f"GHOST-{device_id}-ACTIVATE" 
+        
+        bot.reply_to(message, f"✅ Success!\nDevice: {device_id}\nPoints: {points}\nKey: {generated_key}")
     except Exception as e:
         bot.reply_to(message, f"❌ Error: {str(e)}")
 
-print("Bot is running...")
-bot.infinity_polling()
+if __name__ == '__main__':
+    Thread(target=run).start()
+    bot.polling()
