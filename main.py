@@ -40,7 +40,7 @@ def add_point(message):
         device_id = args[1]
         points = args[2]
         
-        # ROHPU1QT-1-ISBF ပုံစံမျိုး Key ထုတ်ပေးခြင်း
+        # AB-JVXXEV ပုံစံမျိုး Key ထုတ်ပေးခြင်း
         part1 = ''.join(random.choices(string.ascii_uppercase + string.digits, k=8))
         part2 = points
         part3 = ''.join(random.choices(string.ascii_uppercase + string.digits, k=4))
