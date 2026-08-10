@@ -4,6 +4,7 @@ import logging
 import random
 import string
 import requests
+import settings  # config အစား settings ကို လှမ်းခေါ်ခြင်း
 from telegram import Update
 from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes
 
@@ -12,11 +13,11 @@ logging.basicConfig(
     level=logging.INFO
 )
 
-TOKEN = "8535512510:AAHXuG6Vp4ATkF1hqSGlOa56vagz0Cruh6c"
-ADMIN_USER_ID = 1801787123
+# settings.py ထဲက အချက်အလက်များကို သုံးခြင်း
+TOKEN = settings.TOKEN
+ADMIN_USER_ID = settings.ADMIN_USER_ID
+GITHUB_TOKEN = settings.GITHUB_TOKEN
 
-# GitHub ဆိုင်ရာ အချက်အလက်များ
-GITHUB_TOKEN = "YOUR_GITHUB_PERSONAL_ACCESS_TOKEN"  # သင့်ရဲ့ GitHub Token ထည့်ရန်
 REPO_OWNER = "soemoe543"
 REPO_NAME = "telegram-bot"
 FILE_PATH = "api.json"
@@ -33,8 +34,6 @@ async def add_license(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("⛔ ဒီ Command ကို သုံးခွင့်မရှိပါ။")
         return
         
-    # အသုံးပြုသူက ID နဲ့ Expire Date ကိုပဲ ထည့်ရပါမည် (Key က အလိုအလျောက် ထွက်မည်)
-    # ဥပမာ: /add EASY-3C48-400C-CDAC 2030-12-31
     if len(context.args) < 2:
         await update.message.reply_text(
             "❌ ပုံစံမမှန်ပါ။ ဤကဲ့သို့ ရိုက်ပါ:\n\n"
@@ -47,7 +46,6 @@ async def add_license(update: Update, context: ContextTypes.DEFAULT_TYPE):
     hardware_id = context.args[0]
     expire_date = context.args[1]
     
-    # မတူညီသော Key အသစ်ကို အလိုအလျောက် ထုတ်ယူခြင်း
     generated_key = generate_unique_key()
     
     headers = {
@@ -58,10 +56,9 @@ async def add_license(update: Update, context: ContextTypes.DEFAULT_TYPE):
     url = f"https://api.github.com/repos/{REPO_OWNER}/{REPO_NAME}/contents/{FILE_PATH}"
     
     try:
-        # ၁။ GitHub ထဲက api.json ကို ဖတ်ခြင်း
         res = requests.get(url, headers=headers)
         if res.status_code != 200:
-            await update.message.reply_text("❌ GitHub ထဲက ဖိုင်ကို ဆွဲယူ၍မရပါ။ Token စစ်ပါ။")
+            await update.message.reply_text("❌ GitHub ထဲက api.json ကို ဆွဲယူ၍မရပါ။ GitHub Token မှန်မမှန် စစ်ပါ။")
             return
             
         file_data = res.json()
@@ -70,7 +67,6 @@ async def add_license(update: Update, context: ContextTypes.DEFAULT_TYPE):
         content_decoded = base64.b64decode(file_data['content']).decode('utf-8')
         json_data = json.loads(content_decoded)
         
-        # ၂။ ဒေတာအသစ် ဖန်တီးခြင်း
         new_entry = {
             "hardware_id": hardware_id,
             "license_key": generated_key,
@@ -78,7 +74,6 @@ async def add_license(update: Update, context: ContextTypes.DEFAULT_TYPE):
         }
         json_data['licenses'].append(new_entry)
         
-        # ၃။ GitHub ထဲသို့ ပြန်လည် Commit တင်ခြင်း (api.json ကို ပုံစံအမှန်အတိုင်း Update လုပ်ရန်)
         updated_content_str = json.dumps(json_data, indent=4)
         updated_content_base64 = base64.b64encode(updated_content_str.encode('utf-8')).decode('utf-8')
         
@@ -91,7 +86,6 @@ async def add_license(update: Update, context: ContextTypes.DEFAULT_TYPE):
         put_res = requests.put(url, headers=headers, json=data_to_commit)
         
         if put_res.status_code in [200, 201]:
-            # ၄။ ပြီးသွားလျှင် ထည့်ပြီးသား အချက်အလက်များကို Bot က ပြန်ပို့ပေးမည်
             await update.message.reply_text(
                 f"✅ **GitHub `api.json` သို့ အောင်မြင်စွာ ထည့်သွင်းပြီးပါပြီ!**\n\n"
                 f"💻 **Hardware ID:** `{hardware_id}`\n"
