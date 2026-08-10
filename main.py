@@ -1,27 +1,27 @@
-import telebot
 import os
-import random
+import json
+import base64
+import secrets
 import string
+from datetime import datetime
+
+import requests
+import telebot
 from flask import Flask
-from threading import Thread
 
-# သင့် Bot Token
-TOKEN = "8535512510:AAFYDZfmxeIP7enJ8pk6iNQg2ef30KPjPlg"
-bot = telebot.TeleBot(TOKEN)
-
-# Admin ID
-ADMIN_IDS = [1801787123]
+TELEGRAM_BOT_TOKEN = os.environ["8535512510:AAHXuG6Vp4ATkF1hqSGlOa56vagz0Cruh6c"]
+GITHUB_TOKEN = os.environ["GITHUB_TOKEN"]
 
 ADMIN_IDS = {
     int(x.strip())
-    for x in os.environ.get("ADMIN_IDS", "").split(",")
+    for x in os.environ.get("1801787123", "").split(",")
     if x.strip()
 }
 
 GITHUB_API = "https://api.github.com/repos/soemoe543/telegram-bot/contents/api.json"
 GITHUB_BRANCH = "main"
 
-bot = telebot.TeleBot(TELEGRAM_BOT_TOKEN)
+bot = telebot.TeleBot(8535512510:AAHXuG6Vp4ATkF1hqSGlOa56vagz0Cruh6c)
 app = Flask(__name__)
 
 
@@ -214,4 +214,3 @@ if __name__ == "__main__":
     Thread(target=run_web, daemon=True).start()
     print("Bot is running...")
     bot.infinity_polling(skip_pending=True)
-
