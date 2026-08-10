@@ -1,216 +1,73 @@
-import os
 import json
-import base64
-import secrets
-import string
-from datetime import datetime
+import logging
+from telegram import Update
+from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes
 
-import requests
-import telebot
-from flask import Flask
+logging.basicConfig(
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    level=logging.INFO
+)
 
-TELEGRAM_BOT_TOKEN = os.environ["8535512510:AAHXuG6Vp4ATkF1hqSGlOa56vagz0Cruh6c"]
-GITHUB_TOKEN = os.environ["GITHUB_TOKEN"]
+TOKEN = "8535512510:AAHXuG6Vp4ATkF1hqSGlOa56vagz0Cruh6c"
+ADMIN_USER_ID = 1801787123  # သင့်ရဲ့ Telegram ID
 
-ADMIN_IDS = {
-    int(x.strip())
-    for x in os.environ.get("1801787123", "").split(",")
-    if x.strip()
-}
-
-GITHUB_API = "https://api.github.com/repos/soemoe543/telegram-bot/contents/api.json"
-GITHUB_BRANCH = "main"
-
-bot = telebot.TeleBot(8535512510:AAHXuG6Vp4ATkF1hqSGlOa56vagz0Cruh6c)
-app = Flask(__name__)
-
-
-@app.get("/")
-def home():
-    return "Bot is running!"
-
-
-def headers():
-    return {
-        "Accept": "application/vnd.github+json",
-        "Authorization": f"Bearer {GITHUB_TOKEN}",
-        "X-GitHub-Api-Version": "2022-11-28",
-    }
-
-
-def get_data():
-    r = requests.get(
-        GITHUB_API,
-        headers=headers(),
-        params={"ref": GITHUB_BRANCH},
-        timeout=20,
-    )
-    r.raise_for_status()
-    result = r.json()
-    content = base64.b64decode(result["content"]).decode("utf-8")
-    data = json.loads(content)
-    data.setdefault("licenses", [])
-    return data, result["sha"]
-
-
-def save_data(data, sha):
-    content = json.dumps(data, indent=2, ensure_ascii=False)
-    encoded = base64.b64encode(content.encode("utf-8")).decode("utf-8")
-
-    payload = {
-        "message": "Update licenses from Telegram bot",
-        "content": encoded,
-        "sha": sha,
-        "branch": GITHUB_BRANCH,
-    }
-
-    r = requests.put(
-        GITHUB_API,
-        headers=headers(),
-        json=payload,
-        timeout=20,
-    )
-    r.raise_for_status()
-
-
-def make_key():
-    alphabet = string.ascii_uppercase + string.digits
-    groups = [
-        "".join(secrets.choice(alphabet) for _ in range(4))
-        for _ in range(3)
-    ]
-    return "EASY-" + "-".join(groups)
-
-
-def admin(message):
-    return message.from_user.id in ADMIN_IDS
-
-
-@bot.message_handler(commands=["start"])
-def start(message):
-    if not admin(message):
-        bot.reply_to(message, "❌ Admin only.")
+# /add Command ဖြင့် လိုင်စင်အသစ်ထည့်ရန်
+async def add_license(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    # Admin ဟုတ်မဟုတ် စစ်ဆေးခြင်း
+    if update.effective_user.id != ADMIN_USER_ID:
+        await update.message.reply_text("⛔ ဒီ Command ကို သုံးခွင့်မရှိပါ။")
         return
-
-    bot.reply_to(
-        message,
-        "👋 License Manager\n\n"
-        "အသုံးပြုပုံ:\n"
-        "/addpoint HARDWARE_ID YYYY-MM-DD HH:MM:SS\n\n"
-        "ဥပမာ:\n"
-        "/addpoint EASY-1234-ABCD 2030-12-31 23:59:59"
-    )
-
-
-@bot.message_handler(commands=["addpoint"])
-def addpoint(message):
-    if not admin(message):
-        bot.reply_to(message, "❌ Admin only.")
-        return
-
-    parts = message.text.split()
-
-    if len(parts) != 4:
-        bot.reply_to(
-            message,
-            "❌ Format မမှန်ပါ။\n\n"
-            "/addpoint HARDWARE_ID YYYY-MM-DD HH:MM:SS\n\n"
-            "ဥပမာ:\n"
-            "/addpoint EASY-1234-ABCD 2030-12-31 23:59:59"
+        
+    # လိုအပ်သော အချက်အလက် ပါမပါ စစ်ဆေးခြင်း
+    # ဥပမာ - /add EASY-XXXX-XXXX EASY-TO-XXXX 2030-12-31
+    if len(context.args) < 3:
+        await update.message.reply_text(
+            "❌ ပုံစံမမှန်ပါ။ ဤကဲ့သို့ ရိုက်ထည့်ပါ:\n\n"
+            "`/add <Hardware_ID> <License_Key> <Expire_Date>`\n\n"
+            "ဥပမာ: `/add EASY-1234-5678 EASY-TO-KEY 2030-12-31`",
+            parse_mode="Markdown"
         )
         return
-
-    hardware_id = parts[1]
-    date_text = parts[2]
-    time_text = parts[3]
-
+        
+    new_hw = context.args[0]
+    new_key = context.args[1]
+    new_expire = context.args[2]
+    
     try:
-        expire = datetime.strptime(
-            f"{date_text} {time_text}",
-            "%Y-%m-%d %H:%M:%S",
-        )
-    except ValueError:
-        bot.reply_to(
-            message,
-            "❌ Date/Time မမှန်ပါ။ ဥပမာ: 2030-12-31 23:59:59"
-        )
-        return
-
-    if expire <= datetime.now():
-        bot.reply_to(message, "❌ Expire time က အနာဂတ်ဖြစ်ရပါမယ်။")
-        return
-
-    try:
-        data, sha = get_data()
-
-        for item in data["licenses"]:
-            if item.get("hardware_id") == hardware_id:
-                bot.reply_to(message, "⚠️ ဒီ Hardware ID ရှိပြီးသားပါ။")
-                return
-
-        keys = {item.get("license_key") for item in data["licenses"]}
-        key = make_key()
-        while key in keys:
-            key = make_key()
-
-        item = {
-            "hardware_id": hardware_id,
-            "license_key": key,
-            "expire_date": expire.strftime("%Y-%m-%d %H:%M:%S"),
+        # 1. ရှိပြီးသား api.json ဖိုင်ကို ဖတ်ခြင်း
+        with open('api.json', 'r') as file:
+            data = json.load(file)
+            
+        # 2. ဒေတာအသစ် ထည့်ရန် ဖန်တီးခြင်း
+        new_entry = {
+            "hardware_id": new_hw,
+            "license_key": new_key,
+            "expire_date": new_expire
         }
-
-        data["licenses"].append(item)
-        save_data(data, sha)
-
-        bot.reply_to(
-            message,
-            "✅ License created\n\n"
-            f"ID: {hardware_id}\n"
-            f"KEY: {key}\n"
-            f"EXPIRE: {item['expire_date']}"
+        
+        # 3. licenses array ထဲသို့ အသစ်ထည့်ခြင်း
+        data['licenses'].append(new_entry)
+        
+        # 4. api.json ဖိုင်ထဲသို့ ပြန်လည် သိမ်းဆည်းခြင်း
+        with open('api.json', 'w') as file:
+            json.dump(data, file, indent=4)
+            
+        await update.message.reply_text(
+            f"✅ **လိုင်စင်အသစ် အောင်မြင်စွာ ထည့်သွင်းပြီးပါပြီ!**\n\n"
+            f"💻 Hardware ID: `{new_hw}`\n"
+            f"🔑 Key: `{new_key}`\n"
+            f"📅 Expire: `{new_expire}`",
+            parse_mode="Markdown"
         )
-
-    except requests.HTTPError as e:
-        bot.reply_to(message, f"❌ GitHub error: {e.response.status_code}")
     except Exception as e:
-        bot.reply_to(message, f"❌ Error: {e}")
+        await update.message.reply_text(f"❌ အမှားအယွင်းရှိသည်: {e}")
 
+def main():
+    application = ApplicationBuilder().token(TOKEN).build()
+    application.add_handler(CommandHandler("add", add_license))
 
-@bot.message_handler(commands=["licenses"])
-def licenses(message):
-    if not admin(message):
-        bot.reply_to(message, "❌ Admin only.")
-        return
+    print("🤖 Bot စတင်အလုပ်လုပ်နေပါပြီ...")
+    application.run_polling()
 
-    try:
-        data, _ = get_data()
-
-        if not data["licenses"]:
-            bot.reply_to(message, "📭 License မရှိသေးပါ။")
-            return
-
-        text = "📋 Licenses:\n\n"
-        for i, item in enumerate(data["licenses"], 1):
-            text += (
-                f"{i}. {item.get('hardware_id', '-')}\n"
-                f"KEY: {item.get('license_key', '-')}\n"
-                f"EXPIRE: {item.get('expire_date', '-')}\n\n"
-            )
-
-        bot.send_message(message.chat.id, text[:4000])
-
-    except Exception as e:
-        bot.reply_to(message, f"❌ Error: {e}")
-
-
-def run_web():
-    port = int(os.environ.get("PORT", "8080"))
-    app.run(host="0.0.0.0", port=port)
-
-
-if __name__ == "__main__":
-    from threading import Thread
-
-    Thread(target=run_web, daemon=True).start()
-    print("Bot is running...")
-    bot.infinity_polling(skip_pending=True)
+if __name__ == '__main__':
+    main()
